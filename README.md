@@ -4,7 +4,7 @@ Version: 1.0
 
 Density Scatter Chart is a scatter where the color (and/or transparency) of the markers indicates the density of points.
 
-![Example densityScatterChart](/densityScatterChart/exampleDSC.png)
+![Example densityScatterChart](/exampleDSC.png)
 
 How to use:
 ```
