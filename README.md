@@ -1,5 +1,7 @@
 # densityScatterChart
 
+[![View densityScatterChart on File Exchange](https://www.mathworks.com/matlabcentral/images/matlab-file-exchange.svg)](https://www.mathworks.com/matlabcentral/fileexchange/95828-densityscatterchart)
+
 Version: 1.0
 
 Density Scatter Chart is a scatter where the color (and/or transparency) of the markers indicates the density of points.
