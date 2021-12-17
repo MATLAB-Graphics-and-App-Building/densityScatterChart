@@ -1,5 +1,4 @@
-classdef densityScatterChart < matlab.graphics.chartcontainer.ChartContainer ...
-        & matlab.graphics.chartcontainer.mixin.Colorbar
+classdef densityScatterChart < matlab.graphics.chartcontainer.ChartContainer
 % densityScatterChart - Create a scatter chart that indicates density
 % with color or alpha.
 %
@@ -17,50 +16,9 @@ classdef densityScatterChart < matlab.graphics.chartcontainer.ChartContainer ...
 %     dsc = DENSITYSCATTERCHART(...) returns the DensityScatterChart
 %     object. Use dsc to set properties on the chart after creating it.
 %
-%     ---------------------------------------------------------------------
-%     DENSITYSCATTERCHART properties description:
-%
-%     PropertyName default (if relevant) : purpose
-%
-%     ALim [0 1] : The data limits of alpha used by the chart.
-%     ALimMode 'auto' : When 'auto', ALim will match the range of
-%                        densities in the chart
-%     AlphaRange [0.1 1] : The range of alpha values that ALim will map on
-%                           to. 0 inidcates a fully transparent marker, 1
-%                           indicates a fully opaque marker.
-%     CLim [0 1] : The data limits of color used by the chart.
-%     CLimMode 'auto' : When 'auto', CLim will match the range of
-%                       densities in the chart.
-%     ColorbarVisible on : Whether or not the colorbar is visible.
-%     Colormap : The colormap used by the chart. Defaults to the default
-%                colormap used by MATLAB
-%     DensityExponent 1 : An exponent applied to density values. Use a
-%                         value greater than 1 for a 'steeper' density
-%                         display, and a value less than 1 for a 'flatter'
-%                         density display.
-%     DensityMethod "histcounts" : The method used to compute density.
-%                                    - "histcounts" will bin the data in
-%                                      rectangles (using the histcounts2
-%                                      function) and density will be the
-%                                      number of points in each bin.
-%                                    - "ksdensity" requires the Statistics
-%                                      and Machine Learning toolbox, and will
-%                                      calculate the kernel density (using
-%                                      the ksdensity function with the
-%                                      default arguments).
-%                                    - You may also specify a custom function
-%                                      that takes two arguments (the x and y
-%                                      values) and returns a density of matching
-%                                      length, e.g.: @(x,y)x^2+y^2;
-%     UseAlpha off : Whether or not to vary alpha with density.
-%     UseColor on : Whether or not to vary color with density.
-%     XData: [1×0 double]
-%     YData: [1×0 double]
-%     Title "" : A title for the chart.
-%
-%     Additional properties (see documentation for axes)
-%       Position, InnerPosition, OuterPosition, PositionConstraint, Parent,
-%       Units, Visible, XLim, XLimMode, YLim, YLimMode
+% <a href="matlab: help densityScatterChart.PropertyDescriptions">densityScatterChart properties</a>
+% <a href="matlab: help densityScatterChart.unmanage">densityScatterChart.unmanage</a> to unmanage a densityScatterChart and work
+% directly with the underlying axes and scatter components.
 
 % Copyright 2021 The MathWorks, Inc.
 
@@ -68,15 +26,12 @@ classdef densityScatterChart < matlab.graphics.chartcontainer.ChartContainer ...
     properties
         XData (1,:) double = []
         YData (1,:) double = []
-        Colormap (:,3) double {mustBeNonempty, mustBeInRange(Colormap,0,1)} = get(groot, 'factoryFigureColormap')
         UseColor (1,1) matlab.lang.OnOffSwitchState = matlab.lang.OnOffSwitchState.on
         UseAlpha (1,1) matlab.lang.OnOffSwitchState = matlab.lang.OnOffSwitchState.off
         AlphaRange (1,2) double {mustBeLimits} = [.1 1]
 
         DensityExponent (1,1) double {mustBePositive} = 1;
         DensityMethod {mustBeDensityMethod} = "histcounts"
-
-        Title (:,1) string = ""
     end
 
     % DataStorage, used for save/load
@@ -94,10 +49,21 @@ classdef densityScatterChart < matlab.graphics.chartcontainer.ChartContainer ...
         YLimMode
         CLimMode
         ALimMode
+        Title
+        XLabel
+        YLabel
+        ColorbarVisible (1,1) matlab.lang.OnOffSwitchState
+        ColorbarLabel
+        Colormap (:,3) double {mustBeNonempty, mustBeInRange(Colormap,0,1)} = get(groot, 'factoryFigureColormap')
+    end
+
+    properties(Transient)
+        ColorbarVisibleMode (1,1) string {mustBeMember(ColorbarVisibleMode,["manual" "auto"])} = "auto"
     end
 
     properties(Access = private, Transient, NonCopyable)
-        Scat (1,1) matlab.graphics.chart.primitive.Scatter
+        Scat matlab.graphics.chart.primitive.Scatter
+        Cbar matlab.graphics.illustration.ColorBar
 
         DataNeedsUpdate (1,1) logical = true
         DensityNeedsUpdate (1,1) logical = true
@@ -156,9 +122,8 @@ classdef densityScatterChart < matlab.graphics.chartcontainer.ChartContainer ...
                 'Marker', 'o', ...
                 'SizeData', 36, ...
                 'AlphaDataMapping','scaled');
-
             box(obj.getAxes, 'on');
-
+            
             obj.loadState;
         end
         function update(obj)
@@ -183,7 +148,13 @@ classdef densityScatterChart < matlab.graphics.chartcontainer.ChartContainer ...
                 if obj.UseColor
                     % Color the values based on density.
                     obj.Scat.CData = d;
-                    obj.ColorbarVisible = 'on';
+                    if obj.ColorbarVisibleMode == "auto"
+                        if isempty(obj.getAxes.Colorbar)
+                            colorbar(obj.getAxes);
+                        end
+                        obj.getAxes.Colorbar.Visible = 'on';
+                        obj.getAxes.Colorbar.Label.String = obj.ColorbarLabel;
+                    end
                 else
                     % If not coloring by density, choose a color from the
                     % default axes colororder.
@@ -194,9 +165,8 @@ classdef densityScatterChart < matlab.graphics.chartcontainer.ChartContainer ...
                     end
                     obj.Scat.CData = c(1,:);
 
-                    % Workaround for issues with Colorbar mixin
-                    try
-                        obj.ColorbarVisible = 'off';
+                    if obj.ColorbarVisibleMode == "auto" && ~isempty(obj.getAxes.Colorbar)
+                        obj.getAxes.Colorbar.Visible = 'off';
                     end
                 end
                 if obj.UseAlpha
@@ -207,7 +177,6 @@ classdef densityScatterChart < matlab.graphics.chartcontainer.ChartContainer ...
                     obj.Scat.MarkerFaceAlpha = 1;
                 end
             end
-            title(obj.getAxes, obj.Title);
         end
         function groups = getPropertyGroups(~)
             groups = matlab.mixin.util.PropertyGroup( ...
@@ -229,20 +198,27 @@ classdef densityScatterChart < matlab.graphics.chartcontainer.ChartContainer ...
 
             if strcmpi(obj.DensityMethod,'ksdensity')
                 % stats toolbox density via ksdensity
-                d = ksdensity([x y], [x y]);
+                d = ksdensity([x(:) y(:)], [x(:) y(:)]);
 
             elseif strcmpi(obj.DensityMethod,'histcounts')
                 [n,xedges,yedges] = histcounts2(x, y, 'BinMethod', 'auto');
 
                 xcenters = xedges(1:end-1) + diff(xedges) / 2;
                 ycenters = yedges(1:end-1) + diff(yedges) / 2;
-
+                
+                % Points between the outmost bin are tricky, using the
+                % outermost bin (similar to imfilter's replicate option) is
+                % a decent approximation
+                xi = [xedges(1) xcenters xedges(end)];
+                yi = [yedges(1) ycenters yedges(end)];
+                n = [n(:,1) n n(:,end)];
+                n = [n(1,:); n; n(end,:)];
                 if numel(ycenters) == 1
-                    d = interp1(xcenters,n',x);
+                    d = interp1(xi,n',x);
                 elseif numel(xcenters) == 1
-                    d = interp1(ycenters,n',y);
+                    d = interp1(yi,n',y);
                 else
-                    [xi,yi] = meshgrid(xcenters, ycenters);
+                    [xi,yi] = meshgrid(xi, yi);
                     d = interp2(xi, yi, n', x, y);
                 end
 
@@ -325,6 +301,61 @@ classdef densityScatterChart < matlab.graphics.chartcontainer.ChartContainer ...
             val = obj.getAxes.ALimMode;
         end
 
+        function set.ColorbarVisible(obj,vis)
+            obj.ColorbarVisibleMode = 'manual';
+            if isempty(obj.getAxes.Colorbar)
+                colorbar(obj.getAxes);
+            end
+            obj.getAxes.Colorbar.Visible = vis;
+            obj.DensityNeedsUpdate = true;
+        end
+        function vis = get.ColorbarVisible(obj)
+            if isempty(obj.getAxes.Colorbar)
+                vis = false;
+            else
+                vis = obj.getAxes.Colorbar.Visible;
+            end
+        end
+
+        function set.Title(obj,str)
+            obj.getAxes.Title.String = str;
+        end
+        function str = get.Title(obj)
+            str = obj.getAxes.Title.String;
+        end
+
+        function set.XLabel(obj,str)
+            obj.getAxes.XLabel.String = str;
+        end
+        function str = get.XLabel(obj)
+            str = obj.getAxes.XLabel.String;
+        end
+
+        function set.YLabel(obj,str)
+            obj.getAxes.YLabel.String = str;
+        end
+        function str = get.YLabel(obj)
+            str = obj.getAxes.YLabel.String;
+        end
+
+        function set.ColorbarLabel(obj,str)
+            if isempty(obj.getAxes.Colorbar)
+                colorbar(obj.getAxes, 'Visible', obj.ColorbarVisible);
+            end
+            obj.getAxes.Colorbar.Label.String = str;
+        end
+        function str = get.ColorbarLabel(obj)
+            str = "";
+            if ~isempty(obj.getAxes.Colorbar)
+                str = obj.getAxes.Colorbar.Label.String;
+            end
+        end
+        function set.Colormap(obj,cmap)
+            obj.getAxes.Colormap = cmap;
+        end
+        function cmap = get.Colormap(obj)
+            cmap = obj.getAxes.Colormap;
+        end
         % datastorage property supports saving and loading the chart
         function data=get.DataStorage(obj)
             % this method is called when the chart is saved or loaded. It
@@ -333,18 +364,25 @@ classdef densityScatterChart < matlab.graphics.chartcontainer.ChartContainer ...
             if isLoading
                 data = obj.DataStorage;
             else
-                data = struct('XLim', [], 'YLim', [], 'CLim', [], 'ALim', []);
-                if strcmp(obj.getAxes.XLimMode, 'manual')
-                    data.XLim = obj.getAxes.XLim;
+                data = struct('XLim', [], 'YLim', [], 'CLim', [], 'ALim', [], ...
+                    'Title', obj.Title, 'XLabel', obj.XLabel, 'YLabel', obj.YLabel, ...
+                    'ColorbarLabel', obj.ColorbarLabel, 'Colormap', obj.Colormap);
+
+                ax = obj.getAxes;
+                if strcmp(ax.XLimMode, 'manual')
+                    data.XLim = ax.XLim;
                 end
-                if strcmp(obj.getAxes.YLimMode, 'manual')
-                    data.YLim = obj.getAxes.YLim;
+                if strcmp(ax.YLimMode, 'manual')
+                    data.YLim = ax.YLim;
                 end
-                if strcmp(obj.getAxes.CLimMode, 'manual')
-                    data.CLim = obj.getAxes.CLim;
+                if strcmp(ax.CLimMode, 'manual')
+                    data.CLim = ax.CLim;
                 end
-                if strcmp(obj.getAxes.ALimMode, 'manual')
-                    data.ALim = obj.getAxes.ALim;
+                if strcmp(ax.ALimMode, 'manual')
+                    data.ALim = ax.ALim;
+                end
+                if strcmp(obj.ColorbarVisibleMode, 'manual')
+                    data.ColorbarVisible = obj.ColorbarVisible;
                 end
             end
         end
@@ -362,7 +400,7 @@ classdef densityScatterChart < matlab.graphics.chartcontainer.ChartContainer ...
             for i = 1:numel(f)
                 fn = f{i};
                 if ~isempty(data.(fn))
-                    obj.getAxes.(fn) = data.(fn);
+                    obj.(fn) = data.(fn);
                 end
             end
             obj.DataStorage = [];
@@ -399,7 +437,110 @@ classdef densityScatterChart < matlab.graphics.chartcontainer.ChartContainer ...
             end
         end
     end
+    
+    % Documented methods
+    methods
+        function [tcl,ax,scat] = unmanage(obj)
+% UNMANAGE a densityScatterChart
+%
+% UNMANAGE(dsc) - transforms the densityScatterChart dsc into a (regular) 
+% scatter object in an axes in a 1x1 TiledChartLayout. This operation is 
+% permenant and prevents any further access to original interface of the 
+% densityScatterChart, including its properties and methods.
+%
+% tcl = UNMANAGE(dsc) returns the TiledChartLayout. Use this object to
+% manage the position of the unmanaged densityScatterChart
+%
+% [tcl, ax] = UNMANAGE(dsc) also returns the Axes. Use the axes to
+% customize details like grid or fontsize, or as a target for other plotting 
+% commands.
+%
+% [tcl, ax, scat] = UNMANAGE(dsc) also returns the Scatter. Use the Scatter
+% to customize details like the Marker or MarkerSize.
+% 
+% Use UNMANAGE to remove the contents of a densityScatterChart so that you
+% can alter detailed aspects of the display or add additional graphics to
+% the axes.
+%
+% UNMANAGE will disable access to the managed, high-level, interface and
+% instead allow direct access to the graphics components. 
+% <strong> Note: this action is irreversible!<strong>
+%
+% A densityScatterChart is a standalone visualization, providing an
+% abstract set of controls that display a scatter chart. This allows you to
+% set various properties and have those settings reflected in the
+% underlying scatter object. However, this framework can limit the ability
+% to manipulate densityScatterCharts to the set of properties that
+% densityScatterChart provides.
 
+            if nargout>0
+                tcl = obj.getLayout;
+            end
+            if nargout>1
+                ax = obj.getAxes;
+            end
+            if nargout>2
+                scat = obj.Scat;
+            end
+            obj.getLayout.Parent = obj.Parent;
+            delete(obj)
+        end
+    end
+
+    % Methods just for help text
+    methods(Static, Hidden)
+        function PropertyDescriptions
+%DENSITYSCATTERCHART property descriptions:
+%
+% <PropertyName> <default> : <description>
+% 
+% ALim [0 1] : The data limits of alpha used by the chart.
+% ALimMode 'auto' : When 'auto', ALim will match the range of
+%                    densities in the chart
+% AlphaRange [0.1 1] : The range of alpha values that ALim will map on
+%                       to. 0 inidcates a fully transparent marker, 1
+%                       indicates a fully opaque marker.
+% CLim [0 1] : The data limits of color used by the chart.
+% CLimMode 'auto' : When 'auto', CLim will match the range of
+%                   densities in the chart.
+% ColorbarVisible on : Whether or not the colorbar is visible.
+% Colormap : The colormap used by the chart. Defaults to the default
+%            colormap used by MATLAB
+% DensityExponent 1 : An exponent applied to density values. Use a
+%                     value greater than 1 for a 'steeper' density
+%                     display, and a value less than 1 for a 'flatter'
+%                     density display.
+% DensityMethod "histcounts" : The method used to compute density.
+%                                - "histcounts" will bin the data in
+%                                  rectangles (using the histcounts2
+%                                  function) and density will be the
+%                                  number of points in each bin.
+%                                - "ksdensity" requires the Statistics
+%                                  and Machine Learning toolbox, and will
+%                                  calculate the kernel density (using
+%                                  the ksdensity function with the
+%                                  default arguments).
+%                                - You may also specify a custom function
+%                                  that takes two arguments (the x and y
+%                                  values) and returns a density of matching
+%                                  length, e.g.: @(x,y)x^2+y^2;
+% UseAlpha off : Whether or not to vary alpha with density.
+% UseColor on : Whether or not to vary color with density.
+% XData: [1×0 double]
+% YData: [1×0 double]
+% Title "" : Title for the chart.
+% XLabel "" : Label for the x-axis.
+% YLabel "" : Label for the y-axis.
+% ColorbarLabel "" : Label for the colorbar.
+%
+% ---------------------------------------------------------------------
+% Additional properties (see documentation for axes)
+%  Position, InnerPosition, OuterPosition, PositionConstraint, Parent,
+%  Units, Visible, XLim, XLimMode, YLim, YLimMode
+%
+% <a href="matlab: help densityScatterChart">densityScatterChart</a>
+        end
+    end
 end
 
 % Property Validators
@@ -435,5 +576,5 @@ if ischar(a) || isstring(a)
 end
 
 throwAsCaller(MException('densityScatterChart:InvalidDensity', ...
-    '''DensityMethod'' must be a function handle, or the keywords ''histcounts'' or ''kdensity''.'))
+    '''DensityMethod'' must be a function handle, or the keywords ''histcounts'' or ''ksdensity''.'))
 end
