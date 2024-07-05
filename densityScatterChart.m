@@ -472,7 +472,7 @@ classdef densityScatterChart < matlab.graphics.chartcontainer.ChartContainer
 % underlying scatter object. However, this framework can limit the ability
 % to manipulate densityScatterCharts to the set of properties that
 % densityScatterChart provides.
-
+            drawnow
             if nargout>0
                 tcl = obj.getLayout;
             end
